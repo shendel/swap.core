@@ -50,6 +50,7 @@ export default (tokenName) => {
         isSignFetching: false,
         isMeSigned: false,
 
+        targetWallet : null,
         secretHash: null,
         btcScriptValues: null,
 
@@ -78,7 +79,14 @@ export default (tokenName) => {
       super._persistSteps()
       this._persistState()
     }
-
+    
+    /* Set destination address for tokens */
+    setEthAddress(newEthAddress) {
+      this.setState( {
+        targetWallet : newEthAddress
+      } );
+    }
+    
     _persistState() {
       super._persistState()
     }
@@ -182,7 +190,17 @@ export default (tokenName) => {
               })
             })
           }
-
+          
+          if (flow.state.targetWallet) {
+            await flow.ethTokenSwap.setTargetWallet(
+              flow.swap.participant.eth.address, 
+              flow.state.targetWallet,
+              (hash) => {
+                /* console.log('set target wallet tx ',hash); */
+              }
+            );
+          }
+          
           flow.finishStep({
             isEthContractFunded: true,
           }, {step: 'lock-eth'})

@@ -277,7 +277,38 @@ class EthTokenSwap extends SwapInterface {
       return `Expected value: ${expectedValue.toNumber()}, got: ${balance}`
     }
   }
-
+  /**
+   * @param {string} participantAddress
+   * @param {string} newTargetWallet
+   * @param {function} handleTransactionHash
+   */
+  async setTargetWallet(participantAddress, newTargetWallet, handleTransactionHash) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const params  = {
+          from: SwapApp.services.auth.accounts.eth.address,
+          gas: this.gasLimit,
+          gasPrice: this.gasPrice,
+        }
+        const gasFee = await this.contract.methods.setTargetWallet(participantAddress, newTargetWallet).estimateGas(params)
+        console.log("EthTokenSwap -> setTargetWallet -> gasFee",gasFee);
+        params.gas = gasFee;
+        const result = await this.contract.methods.setTargetWallet(participantAddress, newTargetWallet).send(params)
+          .on('transactionHash', (hash) => {
+            if (typeof handleTransactionHash === 'function') {
+              handleTransactionHash(hash)
+            }
+          })
+          .on('error', (err) => {
+              reject(err)
+          })
+          resolve("ok")
+        }
+        catch (err) {
+          reject(err)
+        }
+    });
+  }
   /**
    *
    * @param {object} data
