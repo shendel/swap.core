@@ -1,5 +1,5 @@
 import SwapApp, { SwapInterface, constants } from 'swap.app'
-
+import BigNumber from 'bignumber.js'
 
 class BtcSwap extends SwapInterface {
 
@@ -27,7 +27,7 @@ class BtcSwap extends SwapInterface {
     this.fetchBalance   = options.fetchBalance
     this.fetchUnspents  = options.fetchUnspents
     this.broadcastTx    = options.broadcastTx
-    this.feeValue       = options.feeValue || 5000
+    this.feeValue       = options.feeValue || BigNumber(5000)
   }
 
   _initSwap() {
@@ -45,7 +45,7 @@ class BtcSwap extends SwapInterface {
    * @public
    */
   getTxFee( satoshis ) {
-    return (satoshis) ? this.feeValue : this.feeValue / 100000000
+    return (satoshis) ? this.feeValue : this.feeValue / BigNumber(100000000)
   }
   /**
    *
