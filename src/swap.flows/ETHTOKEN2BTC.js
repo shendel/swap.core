@@ -279,6 +279,8 @@ export default (tokenName) => {
           isSwapExist: true,
         })
       } else {
+        if (this.state.isSignFetching || this.state.isMeSigned) return true;
+        
         this.setState({
           isSignFetching: true,
         })
@@ -290,6 +292,7 @@ export default (tokenName) => {
 
           this.finishStep({
             isMeSigned: true,
+            isSignFetching: false
           }, {step: 'sign'})
         })
 
