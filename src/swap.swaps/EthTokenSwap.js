@@ -50,8 +50,9 @@ class EthTokenSwap extends SwapInterface {
     this.tokenAddress   = options.tokenAddress
     this.tokenAbi       = options.tokenAbi
 
-    this.gasLimit       = options.gasLimit || 1e6
+    this.gasLimit       = options.gasLimit || 2e5 // when used method 'send' - calculated with 'estimateGas'
     this.gasPrice       = options.gasPrice || 2e9
+    
     this.fetchBalance   = options.fetchBalance
   }
 
