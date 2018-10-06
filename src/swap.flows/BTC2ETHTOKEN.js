@@ -181,6 +181,7 @@ export default (tokenName) => {
             const scriptData = flow.btcSwap.createScript(scriptValues)
             flow.setState( {
               scriptData : scriptData,
+              btcScriptValues: scriptValues,
               scriptBalance : 0,
               scriptUnspendBlance : 0
             } );
