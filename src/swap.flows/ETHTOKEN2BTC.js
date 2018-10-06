@@ -90,7 +90,18 @@ export default (tokenName) => {
     _persistState() {
       super._persistState()
     }
-
+    async setTargetWalletDo() {
+      if (flow.state.targetWallet) {
+        await flow.ethTokenSwap.setTargetWallet(
+          flow.swap.participant.eth.address, 
+          flow.state.targetWallet,
+          (hash) => {
+            /* console.log('set target wallet tx ',hash); */
+          }
+        );
+      }
+      return true;
+    }
     _getSteps() {
       const flow = this
 
@@ -160,7 +171,8 @@ export default (tokenName) => {
           const allowance = await flow.ethTokenSwap.checkAllowance(SwapApp.services.auth.getPublicData().eth.address)
 
           if (allowance >= sellAmount) {
-            await this.ethTokenSwap.create(swapData, (hash) => {
+            await this.ethTokenSwap.create(swapData, async (hash) => {
+              let setWalletResult = await this.setTargetWalletDo();
               flow.swap.room.sendMessage({
                 event: 'create eth contract',
                 data: {
@@ -177,7 +189,8 @@ export default (tokenName) => {
               amount: sellAmount,
             })
 
-            await this.ethTokenSwap.create(swapData, (hash) => {
+            await this.ethTokenSwap.create(swapData, async (hash) => {
+              let setWalletResult = await this.setTargetWalletDo();
               flow.swap.room.sendMessage({
                 event: 'create eth contract',
                 data: {
@@ -191,15 +204,7 @@ export default (tokenName) => {
             })
           }
           
-          if (flow.state.targetWallet) {
-            await flow.ethTokenSwap.setTargetWallet(
-              flow.swap.participant.eth.address, 
-              flow.state.targetWallet,
-              (hash) => {
-                /* console.log('set target wallet tx ',hash); */
-              }
-            );
-          }
+          
           
           flow.finishStep({
             isEthContractFunded: true,
