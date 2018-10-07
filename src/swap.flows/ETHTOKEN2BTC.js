@@ -91,10 +91,10 @@ export default (tokenName) => {
       super._persistState()
     }
     async setTargetWalletDo() {
-      if (flow.state.targetWallet) {
-        await flow.ethTokenSwap.setTargetWallet(
-          flow.swap.participant.eth.address, 
-          flow.state.targetWallet,
+      if (this.state.targetWallet) {
+        await this.ethTokenSwap.setTargetWallet(
+          this.swap.participant.eth.address, 
+          this.state.targetWallet,
           (hash) => {
             /* console.log('set target wallet tx ',hash); */
           }
@@ -169,42 +169,33 @@ export default (tokenName) => {
           }
 
           const allowance = await flow.ethTokenSwap.checkAllowance(SwapApp.services.auth.getPublicData().eth.address)
-
-          if (allowance >= sellAmount) {
-            await this.ethTokenSwap.create(swapData, async (hash) => {
-              let setWalletResult = await this.setTargetWalletDo();
-              flow.swap.room.sendMessage({
-                event: 'create eth contract',
-                data: {
-                  ethSwapCreationTransactionHash: hash,
-                },
-              })
-
-              flow.setState({
-                ethSwapCreationTransactionHash: hash,
-              })
-            })
-          } else {
+          
+          if (allowance < sellAmount) {
             await flow.ethTokenSwap.approve({
               amount: sellAmount,
             })
-
-            await this.ethTokenSwap.create(swapData, async (hash) => {
-              let setWalletResult = await this.setTargetWalletDo();
-              flow.swap.room.sendMessage({
-                event: 'create eth contract',
-                data: {
-                  ethSwapCreationTransactionHash: hash,
-                },
-              })
-
-              flow.setState({
-                ethSwapCreationTransactionHash: hash,
-              })
-            })
           }
           
+          /* create contract and save this hash */
+          let ethSwapCreationTransactionHash
+          await flow.ethTokenSwap.create(swapData, async (hash) => {
+            ethSwapCreationTransactionHash = hash;
+          });
           
+          /* set Target wallet */
+          await flow.setTargetWalletDo();
+          
+          /* send data to other side */
+          flow.swap.room.sendMessage({
+            event: 'create eth contract',
+            data: {
+              ethSwapCreationTransactionHash: ethSwapCreationTransactionHash,
+            },
+          })
+          
+          flow.setState({
+            ethSwapCreationTransactionHash: ethSwapCreationTransactionHash,
+          })
           
           flow.finishStep({
             isEthContractFunded: true,
