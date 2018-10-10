@@ -1,9 +1,9 @@
-import crypto from 'bitcoinjs-lib/src/crypto' // move to BtcSwap
+import crypto from 'bitcoinjs-lib/src/crypto' // move to LtcSwap
 import SwapApp, { constants } from 'swap.app'
 import { Flow } from 'swap.swap'
 
 
-class ETH2BTC extends Flow {
+class ETH2LTC extends Flow {
 
   static getName() {
     return `${this.getFromName()}2${this.getToName()}`
@@ -12,33 +12,33 @@ class ETH2BTC extends Flow {
     return constants.COINS.eth
   }
   static getToName() {
-    return constants.COINS.btc
+    return constants.COINS.ltc
   }
   constructor(swap) {
     super(swap)
 
-    this._flowName = ETH2BTC.getName()
+    this._flowName = ETH2LTC.getName()
 
     this.stepNumbers = {
       'sign': 1,
-      'wait-lock-btc': 2,
+      'wait-lock-ltc': 2,
       'verify-script': 3,
       'sync-balance': 4,
       'lock-eth': 5,
       'wait-withdraw-eth': 6, // aka getSecret
-      'withdraw-btc': 7,
+      'withdraw-ltc': 7,
       'finish': 8,
       'end': 9
     }
 
     this.ethSwap = swap.participantSwap
-    this.btcSwap = swap.ownerSwap
+    this.ltcSwap = swap.ownerSwap
 
     if (!this.ethSwap) {
-      throw new Error('BTC2ETH: "ethSwap" of type object required')
+      throw new Error('LTC2ETH: "ethSwap" of type object required')
     }
-    if (!this.btcSwap) {
-      throw new Error('BTC2ETH: "btcSwap" of type object required')
+    if (!this.ltcSwap) {
+      throw new Error('LTC2ETH: "ltcSwap" of type object required')
     }
 
     this.state = {
@@ -49,15 +49,15 @@ class ETH2BTC extends Flow {
       isMeSigned: false,
 
       secretHash: null,
-      btcScriptValues: null,
+      ltcScriptValues: null,
 
-      btcScriptVerified: false,
+      ltcScriptVerified: false,
 
       isBalanceFetching: false,
       isBalanceEnough: false,
       balance: null,
 
-      btcScriptCreatingTransactionHash: null,
+      ltcScriptCreatingTransactionHash: null,
       ethSwapCreationTransactionHash: null,
 
       isEthContractFunded: false,
@@ -65,7 +65,7 @@ class ETH2BTC extends Flow {
       secret: null,
 
       isEthWithdrawn: false,
-      isBtcWithdrawn: false,
+      isLtcWithdrawn: false,
 
       refundTransactionHash: null,
       isRefunded: false,
@@ -93,27 +93,27 @@ class ETH2BTC extends Flow {
         // this.sign()
       },
 
-      // 2. Wait participant create, fund BTC Script
+      // 2. Wait participant create, fund LTC Script
 
       () => {
-        flow.swap.room.once('create btc script', ({ scriptValues, btcScriptCreatingTransactionHash }) => {
+        flow.swap.room.once('create ltc script', ({ scriptValues, ltcScriptCreatingTransactionHash }) => {
           flow.finishStep({
             secretHash: scriptValues.secretHash,
-            btcScriptValues: scriptValues,
-            btcScriptCreatingTransactionHash,
-          }, { step: 'wait-lock-btc', silentError: true })
+            ltcScriptValues: scriptValues,
+            ltcScriptCreatingTransactionHash,
+          }, { step: 'wait-lock-ltc', silentError: true })
         })
 
         flow.swap.room.sendMessage({
-          event: 'request btc script',
+          event: 'request ltc script',
         })
       },
 
-      // 3. Verify BTC Script
+      // 3. Verify LTC Script
 
       () => {
-        console.log(`waiting verify btc script`)
-        // this.verifyBtcScript()
+        console.log(`waiting verify ltc script`)
+        // this.verifyLtcScript()
       },
 
       // 4. Check balance
@@ -131,15 +131,15 @@ class ETH2BTC extends Flow {
         const utcNow = () => Math.floor(Date.now() / 1000)
         const getLockTime = () => utcNow() + 3600 * 1 // 1 hour from now
 
-        const scriptCheckResult = await flow.btcSwap.checkScript(flow.state.btcScriptValues, {
+        const scriptCheckResult = await flow.ltcSwap.checkScript(flow.state.ltcScriptValues, {
           value: buyAmount,
-          recipientPublicKey: SwapApp.services.auth.accounts.btc.getPublicKey(),
+          recipientPublicKey: SwapApp.services.auth.accounts.ltc.getPublicKey(),
           lockTime: getLockTime(),
         })
 
         if (scriptCheckResult) {
-          console.error(`Btc script check error:`, scriptCheckResult)
-          flow.swap.events.dispatch('btc script check error', scriptCheckResult)
+          console.error(`Ltc script check error:`, scriptCheckResult)
+          flow.swap.events.dispatch('ltc script check error', scriptCheckResult)
           return
         }
 
@@ -205,25 +205,25 @@ class ETH2BTC extends Flow {
       // 7. Withdraw
 
       async () => {
-        let { secret, btcScriptValues } = flow.state
+        let { secret, ltcScriptValues } = flow.state
 
-        if (!btcScriptValues) {
-          console.error('There is no "btcScriptValues" in state. No way to continue swap...')
+        if (!ltcScriptValues) {
+          console.error('There is no "ltcScriptValues" in state. No way to continue swap...')
           return
         }
 
-        await flow.btcSwap.withdraw({
-          scriptValues: flow.state.btcScriptValues,
+        await flow.ltcSwap.withdraw({
+          scriptValues: flow.state.ltcScriptValues,
           secret,
         }, (hash) => {
           flow.setState({
-            btcSwapWithdrawTransactionHash: hash,
+            ltcSwapWithdrawTransactionHash: hash,
           })
         })
 
         flow.finishStep({
-          isBtcWithdrawn: true,
-        }, { step: 'withdraw-btc' })
+          isLtcWithdrawn: true,
+        }, { step: 'withdraw-ltc' })
       },
 
       // 8. Finish
@@ -272,18 +272,14 @@ class ETH2BTC extends Flow {
         isSignFetching: true,
       })
 
-      this.swap.room.on('request sign', () => {
+      this.swap.room.once('request sign', () => {
         this.swap.room.sendMessage({
           event: 'swap sign',
         })
 
         this.finishStep({
           isMeSigned: true,
-        }, { step: 'sign', silentError: true })
-      })
-
-      this.swap.room.sendMessage({
-        event: 'swap sign',
+        }, { step: 'sign' })
       })
 
       return true
@@ -291,16 +287,16 @@ class ETH2BTC extends Flow {
   }
 
 
-  verifyBtcScript() {
-    if (this.state.btcScriptVerified) {
+  verifyLtcScript() {
+    if (this.state.ltcScriptVerified) {
       return true
     }
-    if (!this.state.btcScriptValues) {
+    if (!this.state.ltcScriptValues) {
       throw new Error(`No script, cannot verify`)
     }
 
     this.finishStep({
-      btcScriptVerified: true,
+      ltcScriptVerified: true,
     }, { step: 'verify-script' })
 
     return true
@@ -355,17 +351,17 @@ class ETH2BTC extends Flow {
   }
 
   async tryWithdraw(_secret) {
-  const { secret, secretHash, isEthWithdrawn, isBtcWithdrawn, btcScriptValues } = this.state
+  const { secret, secretHash, isEthWithdrawn, isLtcWithdrawn, ltcScriptValues } = this.state
     if (!_secret)
       throw new Error(`Withdrawal is automatic. For manual withdrawal, provide a secret`)
 
-    if (!btcScriptValues)
+    if (!ltcScriptValues)
       throw new Error(`Cannot withdraw without script values`)
 
     if (secret && secret != _secret)
       console.warn(`Secret already known and is different. Are you sure?`)
 
-    if (isBtcWithdrawn)
+    if (isLtcWithdrawn)
       console.warn(`Looks like money were already withdrawn, are you sure?`)
 
     console.log(`WITHDRAW using secret = ${_secret}`)
@@ -374,35 +370,35 @@ class ETH2BTC extends Flow {
     if (secretHash != _secretHash)
       console.warn(`Hash does not match!`)
 
-    const { scriptAddress } = this.btcSwap.createScript(btcScriptValues)
-    const balance = await this.btcSwap.getBalance(scriptAddress)
+    const { scriptAddress } = this.ltcSwap.createScript(ltcScriptValues)
+    const balance = await this.ltcSwap.getBalance(scriptAddress)
 
     console.log(`address=${scriptAddress}, balance=${balance}`)
 
     if (balance === 0) {
       this.finishStep({
-        isBtcWithdrawn: true,
-      }, { step: 'withdraw-btc' })
+        isLtcWithdrawn: true,
+      }, { step: 'withdraw-ltc' })
       throw new Error(`Already withdrawn: address=${scriptAddress},balance=${balance}`)
     }
 
-    await this.btcSwap.withdraw({
-      scriptValues: btcScriptValues,
+    await this.ltcSwap.withdraw({
+      scriptValues: ltcScriptValues,
       secret: _secret,
     }, (hash) => {
       console.log(`TX hash=${hash}`)
       this.setState({
-        btcSwapWithdrawTransactionHash: hash,
+        ltcSwapWithdrawTransactionHash: hash,
       })
     })
-    console.log(`TX withdraw sent: ${this.state.btcSwapWithdrawTransactionHash}`)
+    console.log(`TX withdraw sent: ${this.state.ltcSwapWithdrawTransactionHash}`)
 
     this.finishStep({
-      isBtcWithdrawn: true,
-    }, { step: 'withdraw-btc' })
+      isLtcWithdrawn: true,
+    }, { step: 'withdraw-ltc' })
   }
 
 }
 
 
-export default ETH2BTC
+export default ETH2LTC

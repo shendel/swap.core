@@ -293,21 +293,22 @@ export default (tokenName) => {
           isSwapExist: true,
         })
       } else {
-        if (this.state.isSignFetching || this.state.isMeSigned) return true;
-        
         this.setState({
           isSignFetching: true,
         })
 
-        this.swap.room.once('request sign', () => {
+        this.swap.room.on('request sign', () => {
           this.swap.room.sendMessage({
             event: 'swap sign',
           })
 
           this.finishStep({
             isMeSigned: true,
-            isSignFetching: false
-          }, {step: 'sign'})
+          }, { step: 'sign', silentError: true })
+        })
+
+        this.swap.room.sendMessage({
+          event: 'swap sign',
         })
 
         return true
