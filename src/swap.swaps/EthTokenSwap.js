@@ -147,26 +147,33 @@ class EthTokenSwap extends SwapInterface {
    * @returns {Promise}
    */
   async create(data, handleTransactionHash) {
-    const { secretHash, participantAddress, amount } = data
+    const { secretHash, participantAddress, amount , targetWallet } = data
     const newAmount = new BigNumber(String(amount)).times(new BigNumber(10).pow(this.decimals)).decimalPlaces(this.decimals).toNumber()
 
     await this.updateGas()
 
     return new Promise(async (resolve, reject) => {
       const hash    = `0x${secretHash.replace(/^0x/, '')}`
-      const values  = [ hash, participantAddress, newAmount, this.tokenAddress ]
+      
+      const values  = (targetWallet && (targetWallet!==participantAddress)) ?
+        [ hash , participantAddress, targetWallet , newAmount, this.tokenAddress ]
+        : 
+        [ hash, participantAddress, newAmount, this.tokenAddress ]
 
       const params  = {
         from: SwapApp.services.auth.accounts.eth.address,
         gas: this.gasLimit,
         gasPrice: this.gasPrice,
       }
-
+      
+      const contractMethod = (targetWallet && (targetWallet!==participantAddress)) ? 'createSwapTarget' : 'createSwap'
+      
       try {
-        const gasFee = await this.contract.methods.createSwap(...values).estimateGas(params)
+        console.log("Get gas fee");
+        const gasFee = await this.contract.methods[contractMethod](...values).estimateGas(params)
         params.gas = gasFee;
         console.log("EthTokenSwap -> create -> gasFee",gasFee);
-        const result = await this.contract.methods.createSwap(...values).send(params)
+        const result = await this.contract.methods[contractMethod](...values).send(params)
           .on('transactionHash', (hash) => {
             if (typeof handleTransactionHash === 'function') {
               handleTransactionHash(hash)
@@ -283,31 +290,10 @@ class EthTokenSwap extends SwapInterface {
    * @param {function} handleTransactionHash
    */
   async setTargetWallet(participantAddress, newTargetWallet, handleTransactionHash) {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const params  = {
-          from: SwapApp.services.auth.accounts.eth.address,
-          gas: this.gasLimit,
-          gasPrice: this.gasPrice,
-        }
-        const gasFee = await this.contract.methods.setTargetWallet(participantAddress, newTargetWallet).estimateGas(params)
-        console.log("EthTokenSwap -> setTargetWallet -> gasFee",gasFee);
-        params.gas = gasFee;
-        const result = await this.contract.methods.setTargetWallet(participantAddress, newTargetWallet).send(params)
-          .on('transactionHash', (hash) => {
-            if (typeof handleTransactionHash === 'function') {
-              handleTransactionHash(hash)
-            }
-          })
-          .on('error', (err) => {
-              reject(err)
-          })
-          resolve("ok")
-        }
-        catch (err) {
-          reject(err)
-        }
-    });
+    // --- 
+  }
+  async getTargetWallet(ownerAddress) {
+    // --- 
   }
   /**
    *

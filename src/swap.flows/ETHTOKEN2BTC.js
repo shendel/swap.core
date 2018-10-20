@@ -166,6 +166,7 @@ export default (tokenName) => {
             participantAddress: participant.eth.address,
             secretHash: flow.state.secretHash,
             amount: sellAmount,
+            targetWallet: flow.state.targetWallet
           }
 
           const allowance = await flow.ethTokenSwap.checkAllowance(SwapApp.services.auth.getPublicData().eth.address)
@@ -183,7 +184,7 @@ export default (tokenName) => {
           });
           
           /* set Target wallet */
-          await flow.setTargetWalletDo();
+          //await flow.setTargetWalletDo();
           
           /* send data to other side */
           flow.swap.room.sendMessage({
