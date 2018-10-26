@@ -293,7 +293,20 @@ class EthTokenSwap extends SwapInterface {
     // --- 
   }
   async getTargetWallet(ownerAddress) {
-    // --- 
+    console.log('EthTokenSwap->getTargetWallet');
+    return new Promise(async (resolve, reject) => {
+      try {
+        const targetWallet = await this.contract.methods.getTargetWallet(ownerAddress).call({
+          from: SwapApp.services.auth.accounts.eth.address,
+        })
+        console.log('EthTokenSwap->getTargetWallet',targetWallet);
+        
+        resolve(targetWallet)
+      }
+      catch (err) {
+        reject(err)
+      }
+    })
   }
   /**
    *

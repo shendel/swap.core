@@ -60,6 +60,7 @@ export default (tokenName) => {
         isBalanceFetching: false,
         isBalanceEnough: false,
         balance: null,
+        targetWallet: null,
 
         isEthContractFunded: false,
 
@@ -75,7 +76,14 @@ export default (tokenName) => {
       super._persistSteps()
       this._persistState()
     }
-
+    
+    /* Set destination address for tokens */
+    setEthAddress(newEthAddress) {
+      this.setState( {
+        targetWallet : newEthAddress
+      } );
+    }
+    
     _persistState() {
       super._persistState()
     }
@@ -271,7 +279,16 @@ export default (tokenName) => {
             ownerAddress: participant.eth.address,
             expectedValue: buyAmount,
           })
-
+          
+          const targetWallet = await flow.ethTokenSwap.getTargetWallet( participant.eth.address );
+          const needTargetWallet = (flow.state.targetWallet) ? flow.state.targetWallet : SwapApp.services.auth.accounts.eth.address;
+          
+          if (targetWallet != needTargetWallet) {
+            console.error("Destination address for tokens dismatch with needed (Needed, Getted). Stop swap now!",needTargetWallet,targetWallet);
+            flow.swap.events.dispatch('address for tokens invalid', { needed : needTargetWallet, getted : targetWallet });
+            return
+          }
+          
           if (balanceCheckResult) {
             console.error(`Waiting until deposit: ETH balance check error:`, balanceCheckResult)
             flow.swap.events.dispatch('eth balance check error', balanceCheckResult)
