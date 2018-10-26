@@ -207,7 +207,7 @@ export default (tokenName) => {
                   scriptBalance : balance,
                   scriptUnspendBalance : unspendTotal
                 });
-                const isEnoughMoney = sellAmount.isLessThanOrEqualTo(balance+unspendTotal+this.btcSwap.getTxFee());
+                const isEnoughMoney = sellAmount.isLessThanOrEqualTo(balance+unspendTotal+this.btcSwap.getTxFee( true ));
                 
                 if (isEnoughMoney) {
                   onBTCFuncSuccess(txID)
