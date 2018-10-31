@@ -189,19 +189,25 @@ export default (tokenName) => {
                 let txID = false
                 
                 const unspends = await this.btcSwap.fetchUnspents(flow.state.scriptData.scriptAddress);
+                if (unspends.length)
+                  txID = unspends[0].txID;
                 
-                const unspendTotal = BigInt(unspends.reduce( ( summ, txData ) => {
-                  /* Save first txID in query */
-                  if (!txID) txID = txData.txid;
+                const unspendTotalSatoshi = BigInt(unspends.reduce( ( summ, txData ) => {
                   return summ + (!txData.confirmations) ? txData.satoshis : 0;
                 } , 0 ));
-                const balance = BigInt(await this.btcSwap.fetchBalance(flow.state.scriptData.scriptAddress)*1e8)
-                                  
+                const unspendTotal = unspends.reduce( ( summ, txData ) => {
+                  return summ + (!txData.confirmations) ? txData.amount : 0;
+                } , 0 );
+                
+                const balance = await this.btcSwap.getBalance(flow.state.scriptData.scriptAddress);
+                
+                const balanceSatoshi = BigInt(balance*1e8);
+                
                 flow.setState({
                   scriptBalance : balance,
                   scriptUnspendBalance : unspendTotal
                 });
-                const balanceOnScript = balance + unspendTotal + BigInt(this.btcSwap.getTxFee( true ) );
+                const balanceOnScript = balanceSatoshi + unspendTotalSatoshi + BigInt(this.btcSwap.getTxFee( true ) );
                 const isEnoughMoney = sellAmount.multipliedBy(1e8).isLessThanOrEqualTo( balanceOnScript );
                 
                 if (isEnoughMoney) {
@@ -226,27 +232,16 @@ export default (tokenName) => {
               ethSwapCreationTransactionHash,
             })
           })
-
-          const checkEthBalance = () => {
-            timer = setTimeout(async () => {
-              const balance = await flow.ethTokenSwap.getBalance({
-                ownerAddress: participant.eth.address,
-              })
-
-              if (balance > 0) {
-                if (!flow.state.isEthContractFunded) { // redundant condition but who cares :D
-                  flow.finishStep({
-                    isEthContractFunded: true,
-                  }, { step: 'wait-lock-eth' })
-                }
+          
+          flow.waitEthBalance().then( (balance) => {
+            if (balance > 0) {
+              if (!flow.state.isEthContractFunded) { // redundant condition but who cares :D
+                flow.finishStep({
+                  isEthContractFunded: true,
+                }, { step: 'wait-lock-eth' })
               }
-              else {
-                checkEthBalance()
-              }
-            }, 20 * 1000)
-          }
-
-          checkEthBalance()
+            }
+          } );
 
           flow.swap.room.once('create eth contract', () => {
             if (!flow.state.isEthContractFunded) {
@@ -270,10 +265,18 @@ export default (tokenName) => {
             secret:         flow.state.secret,
           }
 
+          /*
           const balanceCheckResult = await flow.ethTokenSwap.checkBalance({
             ownerAddress: participant.eth.address,
             expectedValue: buyAmount,
           })
+          */
+          const balanceCheckResult = await flow.waitEthBalance();
+          if (!balanceCheckResult) {
+            console.error(`Waiting until deposit: ETH balance check error:`, balanceCheckResult)
+            flow.swap.events.dispatch('eth balance check error', balanceCheckResult)
+            return
+          }
           
           const targetWallet = await flow.ethTokenSwap.getTargetWallet( participant.eth.address );
           const needTargetWallet = (flow.state.targetWallet) ? flow.state.targetWallet : SwapApp.services.auth.accounts.eth.address;
@@ -281,12 +284,6 @@ export default (tokenName) => {
           if (targetWallet != needTargetWallet) {
             console.error("Destination address for tokens dismatch with needed (Needed, Getted). Stop swap now!",needTargetWallet,targetWallet);
             flow.swap.events.dispatch('address for tokens invalid', { needed : needTargetWallet, getted : targetWallet });
-            return
-          }
-          
-          if (balanceCheckResult) {
-            console.error(`Waiting until deposit: ETH balance check error:`, balanceCheckResult)
-            flow.swap.events.dispatch('eth balance check error', balanceCheckResult)
             return
           }
 
@@ -343,7 +340,28 @@ export default (tokenName) => {
         }
       ]
     }
+    
+    async waitEthBalance() {
+      const flow = this;
+      const participant = this.swap.participant;
+      
+      return new Promise((resolve, reject) => {
+        const checkEthBalance =  async () => {
+          const balance = await flow.ethTokenSwap.getBalance({
+            ownerAddress: participant.eth.address,
+          })
+          if (balance > 0) {
+            resolve( balance );
+          }
+          else {
+            setTimeout( checkEthBalance, 20 * 1000 );
+          }
+        }
 
+        checkEthBalance()
+      } );
+    }
+    
     submitSecret(secret) {
       if (this.state.secretHash) { return }
 
