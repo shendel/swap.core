@@ -188,26 +188,24 @@ export default (tokenName) => {
                 
                 let txID = false
                 
-                const unspend = await this.btcSwap.fetchUnspents(flow.state.scriptData.scriptAddress);
-                
-                let unspendTotal = 0;
-                for (var i in unspend) {
+                const unspends = await this.btcSwap.fetchUnspents(flow.state.scriptData.scriptAddress);
+                console.log(unspends);
+                const unspendTotal = BigInt(unspends.reduce( ( summ, txData ) => {
                   /* Save first txID in query */
-                  if (!txID) {
-                    txID = unspend[i].txid
-                  }
-                  if (!unspend.confirmations) {
-                    unspendTotal = unspendTotal+unspend[i].amount;
-                  }
-                };
+                  if (!txID) txID = txData.txid;
+                  return summ + (!txData.confirmations) ? txData.satoshis : 0;
+                } , 0 ));
+                console.log('unspend',unspendTotal);
                 
-                const balance = await this.btcSwap.fetchBalance(flow.state.scriptData.scriptAddress);
-                
+                const balance = BigInt(await this.btcSwap.fetchBalance(flow.state.scriptData.scriptAddress)*1e8)
+                                  
+                console.log('balance',balance);
                 flow.setState({
                   scriptBalance : balance,
                   scriptUnspendBalance : unspendTotal
                 });
-                const isEnoughMoney = sellAmount.isLessThanOrEqualTo(balance+unspendTotal+this.btcSwap.getTxFee( true ));
+                const balanceOnScript = balance + unspendTotal + BigInt(this.btcSwap.getTxFee( true ) );
+                const isEnoughMoney = sellAmount.multipliedBy(1e8).isLessThanOrEqualTo( balanceOnScript );
                 
                 if (isEnoughMoney) {
                   onBTCFuncSuccess(txID)
