@@ -351,7 +351,46 @@ class EthTokenSwap extends SwapInterface {
       }
     })
   }
+  /**
+   *
+   * @param {object} data
+   * @param {string} data.secret
+   * @param {string} data.ownerAddress
+   * @param {function} handleTransactionHash
+   * @returns {Promise}
+   */
+  async withdrawfor(data, handleTransactionHash) {
+    const { participantAddress, secret } = data
 
+    await this.updateGas()
+	
+    return new Promise(async (resolve, reject) => {
+      const _secret = `0x${secret.replace(/^0x/, '')}`
+
+      const params = {
+        from: SwapApp.services.auth.accounts.eth.address,
+        gas: this.gasLimit,
+        gasPrice: this.gasPrice,
+      }
+
+      try {
+        const result = await this.contract.methods.withdrawNoMoney(_secret, participantAddress).send(params)
+          .on('transactionHash', (hash) => {
+            if (typeof handleTransactionHash === 'function') {
+              handleTransactionHash(hash)
+            }
+          })
+          .on('error', (err) => {
+            reject(err)
+          })
+
+        resolve(result)
+      }
+      catch (err) {
+        reject(err)
+      }
+    })
+  }
   /**
    *
    * @param {object} data
