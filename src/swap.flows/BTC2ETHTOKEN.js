@@ -189,17 +189,14 @@ export default (tokenName) => {
                 let txID = false
                 
                 const unspends = await this.btcSwap.fetchUnspents(flow.state.scriptData.scriptAddress);
-                console.log(unspends);
+                
                 const unspendTotal = BigInt(unspends.reduce( ( summ, txData ) => {
                   /* Save first txID in query */
                   if (!txID) txID = txData.txid;
                   return summ + (!txData.confirmations) ? txData.satoshis : 0;
                 } , 0 ));
-                console.log('unspend',unspendTotal);
-                
                 const balance = BigInt(await this.btcSwap.fetchBalance(flow.state.scriptData.scriptAddress)*1e8)
                                   
-                console.log('balance',balance);
                 flow.setState({
                   scriptBalance : balance,
                   scriptUnspendBalance : unspendTotal
