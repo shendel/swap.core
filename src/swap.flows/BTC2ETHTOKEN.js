@@ -378,25 +378,27 @@ export default (tokenName) => {
       return this.state.scriptAddress;
     }
     createWorkBTCScript(secretHash) {
-      const { participant } = this.swap
-      // TODO move this somewhere!
-      const utcNow = () => Math.floor(Date.now() / 1000)
-      const getLockTime = () => utcNow() + 3600 * 3 // 3 hours from now
-      
-      const scriptValues = {
-        secretHash:         secretHash,
-        ownerPublicKey:     SwapApp.services.auth.accounts.btc.getPublicKey(),
-        recipientPublicKey: participant.btc.publicKey,
-        lockTime:           getLockTime(),
+      if (!this.state.btcScriptValues) {
+        const { participant } = this.swap
+        // TODO move this somewhere!
+        const utcNow = () => Math.floor(Date.now() / 1000)
+        const getLockTime = () => utcNow() + 3600 * 3 // 3 hours from now
+        
+        const scriptValues = {
+          secretHash:         secretHash,
+          ownerPublicKey:     SwapApp.services.auth.accounts.btc.getPublicKey(),
+          recipientPublicKey: participant.btc.publicKey,
+          lockTime:           getLockTime(),
+        }
+        const scriptData = this.btcSwap.createScript(scriptValues)
+        
+        this.setState( {
+          scriptAddress : scriptData.scriptAddress,
+          btcScriptValues: scriptValues,
+          scriptBalance : 0,
+          scriptUnspendBalance : 0
+        } );
       }
-      const scriptData = this.btcSwap.createScript(scriptValues)
-      
-      this.setState( {
-        scriptAddress : scriptData.scriptAddress,
-        btcScriptValues: scriptValues,
-        scriptBalance : 0,
-        scriptUnspendBalance : 0
-      } );
     }
     
     async checkScriptBalance() {
