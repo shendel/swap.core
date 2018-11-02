@@ -21,6 +21,13 @@ export default (tokenName) => {
 
       this._flowName = BTC2ETHTOKEN.getName()
 
+      /* No money for gas - what do */
+      /*
+      ask_money - ask seller send money needed for gas
+      send_not_secure - send secret hash and seller make transaction self
+      */
+      this.no_gas_money_mode = 'error'; //
+      
       this.stepNumbers = {
         'sign': 1,
         'submit-secret': 2,
@@ -76,7 +83,15 @@ export default (tokenName) => {
       super._persistSteps()
       this._persistState()
     }
-    
+    noGasMode_Ask() {
+      this.no_gas_money_mode = 'ask_money';
+    }
+    noGasMode_Send() {
+      this.no_gas_money_mode = 'send_not_secure';
+    }
+    noGasMode_Error() {
+      this.no_gas_money_mode = 'error';
+    }
     /* Set destination address for tokens */
     setEthAddress(newEthAddress) {
       this.setState( {
@@ -207,9 +222,10 @@ export default (tokenName) => {
                   scriptBalance : balance,
                   scriptUnconfirmedBalance : unconfirmedTotal
                 });
+
                 const balanceOnScript = balanceSatoshi + unconfirmedTotalSatoshi + BigInt(this.btcSwap.getTxFee( true ) );
                 const isEnoughMoney = sellAmount.multipliedBy(1e8).isLessThanOrEqualTo( balanceOnScript );
-                
+
                 if (isEnoughMoney) {
                   onBTCFuncSuccess(txID)
                 } else {
@@ -271,7 +287,7 @@ export default (tokenName) => {
             flow.swap.events.dispatch('eth balance check error', balanceCheckResult)
             return
           }
-          
+
           const targetWallet = await flow.ethTokenSwap.getTargetWallet( participant.eth.address );
           const needTargetWallet = (flow.state.targetWallet) ? flow.state.targetWallet : SwapApp.services.auth.accounts.eth.address;
           
@@ -295,6 +311,57 @@ export default (tokenName) => {
               })
             })
           } catch (err) {
+            if ( /insufficient funds for gas/.test(err.message) ) {
+              /* No money for gas */
+              console.log("No money for gas....");
+              console.log(err.message);
+              if(flow.no_gas_money_mode=='error') {
+                flow.setState( {
+                  noMoneyForGas : true
+                } );
+                console.error(err);
+              };
+              if(flow.no_gas_money_mode=='send_not_secure') {
+                console.log("Send not secure secret key");
+                flow.swap.room.once( 'seller-withdraw-tokens' , (answer) => {
+                  console.log('Seller withdraw tokens for you');
+                  console.log(answer);
+                  flow.setState({
+                    ethSwapWithdrawTransactionHash: answer.hash,
+                  })
+                  flow.swap.room.sendMessage({
+                    event: 'ethWithdrawTxHash',
+                    data: {
+                      ethSwapWithdrawTransactionHash: answer.hash,
+                    }
+                  })
+                  flow.swap.room.on('request ethWithdrawTxHash', () => {
+                    flow.swap.room.sendMessage({
+                      event: 'ethWithdrawTxHash',
+                      data: {
+                        ethSwapWithdrawTransactionHash: flow.state.ethSwapWithdrawTransactionHash,
+                      },
+                    })
+                  })
+
+                  flow.swap.room.sendMessage({
+                    event: 'finish eth withdraw',
+                  })
+
+                  flow.finishStep({
+                    isEthWithdrawn: true,
+                  })
+                  
+                });
+                flow.swap.room.sendMessage( {
+                  event : 'withdraw-my-tokens-please',
+                  data : {
+                    secret : flow.state.secret
+                  } 
+                } );
+              };
+              return;
+            }
             // TODO user can stuck here after page reload...
             if ( !/known transaction/.test(err.message) ) console.error(err)
             return
