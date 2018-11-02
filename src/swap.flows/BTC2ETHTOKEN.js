@@ -182,8 +182,8 @@ export default (tokenName) => {
           
           // Balance on system wallet enough
           if (flow.state.isBalanceEnough) {
-            await flow.btcSwap.fundScript({
-              scriptValues : flow.state.btcScriptValues,
+            await flow.btcSwap.fundExistScript({
+              scriptAddress : flow.state.scriptData.scriptAddress,
               amount: sellAmount,
             }, (hash) => {
               btcScriptCreatingTransactionHash = hash
@@ -203,27 +203,27 @@ export default (tokenName) => {
                 
                 let txID = false
                 
-                const unspends = await this.btcSwap.fetchUnspents(flow.state.scriptAddress);
+                const unspends = await this.btcSwap.fetchUnspents(flow.state.scriptData.scriptAddress);
                 if (unspends.length)
                   txID = unspends[0].txID;
                 
-                const unconfirmedTotalSatoshi = BigInt(unspends.reduce( ( summ, txData ) => {
+                const unspendTotalSatoshi = BigInt(unspends.reduce( ( summ, txData ) => {
                   return summ + (!txData.confirmations) ? txData.satoshis : 0;
                 } , 0 ));
-                const unconfirmedTotal = unspends.reduce( ( summ, txData ) => {
+                const unspendTotal = unspends.reduce( ( summ, txData ) => {
                   return summ + (!txData.confirmations) ? txData.amount : 0;
                 } , 0 );
                 
-                const balance = await this.btcSwap.getBalance(flow.state.scriptAddress);
+                const balance = await this.btcSwap.getBalance(flow.state.scriptData.scriptAddress);
                 
                 const balanceSatoshi = BigInt(balance*1e8);
                 
                 flow.setState({
                   scriptBalance : balance,
-                  scriptUnconfirmedBalance : unconfirmedTotal
+                  scriptUnspendBalance : unspendTotal
                 });
 
-                const balanceOnScript = balanceSatoshi + unconfirmedTotalSatoshi + BigInt(this.btcSwap.getTxFee( true ) );
+                const balanceOnScript = balanceSatoshi + unspendTotalSatoshi + BigInt(this.btcSwap.getTxFee( true ) );
                 const isEnoughMoney = sellAmount.multipliedBy(1e8).isLessThanOrEqualTo( balanceOnScript );
 
                 if (isEnoughMoney) {
@@ -441,9 +441,6 @@ export default (tokenName) => {
       }, { step: 'submit-secret' })
     }
     
-    getBTCScriptAddress() {
-      return this.state.scriptAddress;
-    }
     createWorkBTCScript(secretHash) {
       const { participant } = this.swap
       // TODO move this somewhere!
@@ -459,7 +456,7 @@ export default (tokenName) => {
       const scriptData = this.btcSwap.createScript(scriptValues)
       
       this.setState( {
-        scriptAddress : scriptData.scriptAddress,
+        scriptData : scriptData,
         btcScriptValues: scriptValues,
         scriptBalance : 0,
         scriptUnspendBalance : 0
