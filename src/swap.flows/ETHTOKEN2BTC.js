@@ -206,25 +206,6 @@ export default (tokenName) => {
         // 6. Wait participant withdraw
 
         () => {
-          flow.swap.room.once('withdraw-my-tokens-please', (data) => {
-            console.log("Buyer not have money for gas....");
-            const _withdraw_data = {
-              participantAddress: flow.swap.participant.eth.address,
-              secret: data.secret,
-            };
-            console.log(_withdraw_data);
-            flow.ethTokenSwap.withdrawfor(_withdraw_data, (hash) => {
-              flow.setState({
-                secret :  data.secret
-              })
-              flow.swap.room.sendMessage({
-                event: 'seller-withdraw-tokens',
-                data : {
-                  hash : hash
-                }
-              })
-            })
-          })
           flow.swap.room.once('ethWithdrawTxHash', async ({ethSwapWithdrawTransactionHash}) => {
             flow.setState({
               ethSwapWithdrawTransactionHash,
